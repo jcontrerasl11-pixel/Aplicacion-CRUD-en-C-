@@ -1,0 +1,209 @@
+#include <iostream>
+#include <mysql_driver.h>
+#include <mysql_connection.h>
+#include <cppconn/statement.h>
+#include <cppconn/prepared_statement.h>
+#include <cppconn/resultset.h>
+
+using namespace std;
+
+sql::Connection *con;
+
+
+void conectar() {
+    sql::mysql::MySQL_Driver *driver;
+    driver = sql::mysql::get_mysql_driver_instance();
+    con = driver->connect("tcp://127.0.0.1:3306", "root", "123456");
+    con->setSchema("universidad");
+}
+
+
+void insertarAlumno() {
+    string n,a,c;
+    cout<<"Nombres: "; cin>>n;
+    cout<<"Apellidos: "; cin>>a;
+    cout<<"Carnet: "; cin>>c;
+
+    auto stmt = con->prepareStatement("INSERT INTO alumnos(nombres,apellidos,carnet) VALUES(?,?,?)");
+    stmt->setString(1,n);
+    stmt->setString(2,a);
+    stmt->setString(3,c);
+    stmt->execute();
+}
+
+void listarAlumnos() {
+    auto stmt = con->createStatement();
+    auto res = stmt->executeQuery("SELECT * FROM alumnos");
+
+    while(res->next()){
+        cout<<res->getInt("id")<<" "
+            <<res->getString("nombres")<<" "
+            <<res->getString("apellidos")<<" "
+            <<res->getString("carnet")<<endl;
+    }
+}
+
+void actualizarAlumno() {
+    int id; string n;
+    cout<<"ID: "; cin>>id;
+    cout<<"Nuevo nombre: "; cin>>n;
+
+    auto stmt = con->prepareStatement("UPDATE alumnos SET nombres=? WHERE id=?");
+    stmt->setString(1,n);
+    stmt->setInt(2,id);
+    stmt->execute();
+}
+
+void eliminarAlumno() {
+    int id; cout<<"ID: "; cin>>id;
+    auto stmt = con->prepareStatement("DELETE FROM alumnos WHERE id=?");
+    stmt->setInt(1,id);
+    stmt->execute();
+}
+
+void insertarCurso() {
+    string n,c;
+    cout<<"Nombre: "; cin>>n;
+    cout<<"Codigo: "; cin>>c;
+
+    auto stmt = con->prepareStatement("INSERT INTO cursos(nombre,codigo) VALUES(?,?)");
+    stmt->setString(1,n);
+    stmt->setString(2,c);
+    stmt->execute();
+}
+
+void listarCursos() {
+    auto res = con->createStatement()->executeQuery("SELECT * FROM cursos");
+    while(res->next()){
+        cout<<res->getInt("id")<<" "<<res->getString("nombre")<<" "<<res->getString("codigo")<<endl;
+    }
+}
+
+void eliminarCurso() {
+    int id; cin>>id;
+    auto stmt = con->prepareStatement("DELETE FROM cursos WHERE id=?");
+    stmt->setInt(1,id);
+    stmt->execute();
+}
+
+
+void insertarSeccion() {
+    string n,j;
+    cin>>n>>j;
+    auto stmt = con->prepareStatement("INSERT INTO secciones(nombre,jornada) VALUES(?,?)");
+    stmt->setString(1,n);
+    stmt->setString(2,j);
+    stmt->execute();
+}
+
+void listarSecciones() {
+    auto res = con->createStatement()->executeQuery("SELECT * FROM secciones");
+    while(res->next()){
+        cout<<res->getInt("id")<<" "<<res->getString("nombre")<<" "<<res->getString("jornada")<<endl;
+    }
+}
+
+
+void asignarCurso() {
+    int a,c;
+    cout<<"Alumno ID: "; cin>>a;
+    cout<<"Curso ID: "; cin>>c;
+
+    auto stmt = con->prepareStatement("INSERT INTO alumno_cursos(alumno_id,curso_id) VALUES(?,?)");
+    stmt->setInt(1,a);
+    stmt->setInt(2,c);
+    stmt->execute();
+}
+
+void asignarSeccion() {
+    int a,s;
+    cin>>a>>s;
+
+    auto stmt = con->prepareStatement("INSERT INTO alumno_seccion(alumno_id,seccion_id) VALUES(?,?)");
+    stmt->setInt(1,a);
+    stmt->setInt(2,s);
+    stmt->execute();
+}
+
+
+void listadoCompleto() {
+    auto res = con->createStatement()->executeQuery(
+        "SELECT a.nombres, c.nombre AS curso, s.nombre AS seccion "
+        "FROM alumnos a "
+        "LEFT JOIN alumno_cursos ac ON a.id=ac.alumno_id "
+        "LEFT JOIN cursos c ON ac.curso_id=c.id "
+        "LEFT JOIN alumno_seccion ase ON a.id=ase.alumno_id "
+        "LEFT JOIN secciones s ON ase.seccion_id=s.id"
+    );
+
+    while(res->next()){
+        cout<<res->getString("nombres")<<" "
+            <<res->getString("curso")<<" "
+            <<res->getString("seccion")<<endl;
+    }
+}
+
+
+void menuAlumnos() {
+    int op;
+    do{
+        cout<<"\n1.Insertar 2.Listar 3.Actualizar 4.Eliminar 5.Regresar\n";
+        cin>>op;
+        if(op==1) insertarAlumno();
+        if(op==2) listarAlumnos();
+        if(op==3) actualizarAlumno();
+        if(op==4) eliminarAlumno();
+    }while(op!=5);
+}
+
+void menuCursos() {
+    int op;
+    do{
+        cout<<"\n1.Insertar 2.Listar 3.Eliminar 4.Regresar\n";
+        cin>>op;
+        if(op==1) insertarCurso();
+        if(op==2) listarCursos();
+        if(op==3) eliminarCurso();
+    }while(op!=4);
+}
+
+void menuSecciones() {
+    int op;
+    do{
+        cout<<"\n1.Insertar 2.Listar 3.Regresar\n";
+        cin>>op;
+        if(op==1) insertarSeccion();
+        if(op==2) listarSecciones();
+    }while(op!=3);
+}
+
+void menuRelaciones() {
+    int op;
+    do{
+        cout<<"\n1.Asignar Curso 2.Asignar Seccion 3.Listado Completo 4.Regresar\n";
+        cin>>op;
+        if(op==1) asignarCurso();
+        if(op==2) asignarSeccion();
+        if(op==3) listadoCompleto();
+    }while(op!=4);
+}
+
+
+int main() {
+    conectar();
+
+    int op;
+    do{
+        cout<<"\n==== UNIVERSIDAD ====\n";
+        cout<<"1.Alumnos\n2.Cursos\n3.Secciones\n4.Relaciones\n5.Salir\n";
+        cin>>op;
+
+        if(op==1) menuAlumnos();
+        if(op==2) menuCursos();
+        if(op==3) menuSecciones();
+        if(op==4) menuRelaciones();
+
+    }while(op!=5);
+
+    delete con;
+}
